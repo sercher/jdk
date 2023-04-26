@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2019, 2023, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -41,6 +41,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 import org.xml.sax.Attributes;
+import org.xml.sax.ErrorHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
@@ -156,6 +157,47 @@ public class ValidationTest {
             }
         }
         return null;
+    }
+
+    /**
+     * @bug 8298087
+     * Verifies that XML Schema Validation reports an exception only once
+     * @throws SAXException if reported a second time
+     */
+    @Test
+    public void testJDK8298087() throws Exception {
+
+        String xsdFile = getClass().getResource(FILE_PATH + "JDK8298087.xsd").getFile();
+        String xmlFile = getClass().getResource(FILE_PATH + "JDK8298087.xml").getFile();
+
+        Source xmlSource = new StreamSource(xmlFile);
+        Source schemaSource = new StreamSource(xsdFile);
+        SchemaFactory schemaFactory = SchemaFactory.newInstance(
+                XMLConstants.W3C_XML_SCHEMA_NS_URI);
+        Schema schema = schemaFactory.newSchema(schemaSource);
+        Validator validator = schema.newValidator();
+        validator.setErrorHandler(new ErrorHandler() {
+            private int reported = 0;
+            public void handle(final SAXParseException spe) throws SAXException {
+                // skip the 1st hit of "missing attribute" exception
+                if (reported++ > 0 || !spe.toString().contains("Attribute 'enabled' must appear")) {
+                    throw new SAXException("Already reported or unexpected exception: " + spe);
+                }
+            }
+            @Override
+            public void warning(final SAXParseException exception) throws SAXException {
+                handle(exception);
+            }
+            @Override
+            public void error(final SAXParseException exception) throws SAXException {
+                handle(exception);
+            }
+            @Override
+            public void fatalError(final SAXParseException exception) throws SAXException {
+                handle(exception);
+            }
+        });
+        validator.validate(xmlSource);
     }
 
     private void validate(String xsd, String xml) throws Exception {
