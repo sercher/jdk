@@ -179,7 +179,7 @@ public class ValidationTest {
         validator.setErrorHandler(new ErrorHandler() {
             private int reported = 0;
             public void handle(final SAXParseException spe) throws SAXException {
-                boolean isAttributeMissing = spe.toString().contains("Attribute 'enabled' must appear"); 
+                boolean isAttributeMissing = spe.toString().contains("Attribute 'enabled' must appear");
                 if (isAttributeMissing && reported++ > 0) {
                     throw new SAXException("Already reported: " + spe);
                 } else if (!isAttributeMissing) {
